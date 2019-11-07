@@ -23,8 +23,8 @@ def node():
     # Create system status publisher
     status_pub = rospy.Publisher('%s/status' % module_name, DiagnosticArray, queue_size=10)
 
-    # ROS rate (10 Hz)
-    rate = rospy.Rate(10)
+    # ROS rate (1 Hz)
+    rate = rospy.Rate(1)
 
     # Run while not shutdown
     sys_status = DiagnosticArray()
@@ -33,13 +33,19 @@ def node():
         # Check status for all monitors running on the system
         # If all are OK, report overall status as ok
         for topic in diag_topics:
-            topic_msg = rospy.wait_for_message(topic, DiagnosticArray)
-            if topic_msg.status.level == 1:
-                sys_status.status.level = 1
-            elif topic_msg.status.level == 2:
+            try:
+                # 2 seconds timeout for diagnostics message
+                topic_msg = rospy.wait_for_message(topic, DiagnosticArray, timeout=2.0)
+                # If at least one module is in error (codes 0 - OK, 1 - Warning, 2 - Error), overall system is not healthy
+                if topic_msg.status.level == 1:
+                    sys_status.status.level = 1
+                elif topic_msg.status.level == 2:
+                    sys_status.status.level = 2
+                else:
+                    sys_status.status.level = 0
+            # This exception is thrown if wait_for_message has timed out, in which case the module is unresponsive
+            except rospy.ROSException:
                 sys_status.status.level = 2
-            else:
-                sys_status.status.level = 0
         
         status_pub.publish(sys_status)
 
