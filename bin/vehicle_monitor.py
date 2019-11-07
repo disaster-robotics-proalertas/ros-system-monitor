@@ -29,8 +29,8 @@ class FSM:
         # Initial FSM state
         self.state = self.BOOT
 
-        # ROS rate (5 Hz)
-        self.rate = rospy.Rate(5)
+        # ROS rate (1 Hz)
+        self.rate = rospy.Rate(1)
 
         # Parameters
         self.sensor_modules = rospy.get_param("asv_description/sensor_modules")
