@@ -50,6 +50,7 @@ class FSM:
         self.rec_nominal = RCIn()
         self.gps_msg = NavSatFix()
         self.vehicle_status = VehicleStatus()
+        self.vehicle_status.name = self.vehicle_name
 
     # Subscriber callbacks
     def rec_callback(self, msg):
