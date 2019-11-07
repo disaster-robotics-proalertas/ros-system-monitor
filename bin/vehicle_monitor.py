@@ -1,9 +1,12 @@
 #!/usr/bin/env python
 
-from diagnostic_msgs.msg import DiagnosticArray
 import rospy
-import rostopic
 import socket
+import rostopic
+from math import sqrt
+from mavros_msgs.msg import RCIn
+from sensor_msgs.msg import NavSatFix
+from diagnostic_msgs.msg import DiagnosticArray
 from system_monitor_msgs.msg import VehicleStatus
 
 '''
@@ -15,33 +18,99 @@ Statuses are:
 3 - Recording   (special state only activated through RC topic)
 '''
 
-def node():
-    # Initialize node
-    rospy.init_node("vehicle_monitor", anonymous=True)
+class FSM:
+    # FSM states
+    ERROR=0
+    BOOT=1
+    SERVICE=2
+    RECORDING=3
 
-    # Get active modules from YAML file parameters
-    vehicle_name = socket.gethostname().replace('-', '_')
-    modules = dict((el,0) for el in rospy.get_param('~/modules'))
+    def __init__(self, **kwargs):
+        # Initial FSM state
+        self.state = self.BOOT
 
-    # Create system status publisher
-    pub = rospy.Publisher('%s/status' % vehicle_name, VehicleStatus, queue_size=10)
+        # ROS rate
+        self.rate = rospy.Rate(10)
 
-    # ROS rate (10 Hz)
-    rate = rospy.Rate(10)
+        # Parameters
+        self.sensor_modules = rospy.get_param("~/sensor_modules")
+        self.vehicle_name = rospy.get_param("~/vehicle_name")
+        self.rec_topic = rospy.get_param("~/record_command_topic")
+        self.gps_topic = rospy.get_param("~/gps_topic", default='/gps/fix')
+        self.rec_cmd_channel = rospy.get_param('~/record_command_channel', default=5)
+        self.rec_cmd_threshold = rospy.get_param('~/record_command_threshold', default=20)
 
-    # Run while not shutdown
-    vehicle = VehicleStatus()
-    while not rospy.is_shutdown():
-        vehicle.header.stamp = rospy.Time.now()
+        # Publishers and subscribers
+        self.status_pub = rospy.Publisher('%s/status' % self.vehicle_name, VehicleStatus, queue_size=10)
+        self.gps_sub = rospy.Subscriber(self.gps_topic, NavSatFix, callback=self.gps_callback)
+        self.rec_cmd_sub = rospy.Subscriber(self.rec_topic, RCIn, callback=self.rec_callback)
         
-        # Check status for each module
-        for modname in modules:
+        # Messages
+        self.rec_msg = RCIn()
+        self.rec_nominal = RCIn()
+        self.gps_msg = NavSatFix()
+        self.vehicle_status = VehicleStatus()
+
+    # Subscriber callbacks
+    def rec_callback(self, msg):
+        self.rec_msg = msg
+
+    def gps_callback(self, msg):
+        self.gps_msg = msg
+
+    # Helper functions
+    def check_modules_health(self):
+        # Check health for each module 
+        system_health = 0
+        for modname in self.sensor_modules:
             diag_msg = rospy.wait_for_message("%s/status" % modname, DiagnosticArray)
-            modules[modname] = diag_msg.status.level
-        
-        pub.publish(vehicle)
+            system_health = diag_msg.status.level
+        return system_health
 
-        rate.sleep()
+    def check_rec_cmd(self):
+        # Check if RC PWM channel is within a certain threshold
+        nominal_pwm = self.rec_nominal.channels[self.rec_cmd_channel]
+        current_pwm = self.rec_msg.channels[self.rec_cmd_channel]
+        if sqrt((current_pwm - nominal_pwm)**2) <= self.rec_cmd_threshold:
+            return True
+        else:
+            return False
+    
+    # Main FSM function
+    def run(self):
+        if self.state == self.ERROR:
+            # If all modules are back online
+            if self.check_modules_health() == 0:
+                self.state = self.BOOT
+        elif self.state == self.BOOT:
+            # If modules are healthy and GPS is fix
+            if self.check_modules_health() == 0 and self.gps_msg.status >= 0:
+                self.state = self.SERVICE
+            # Get nominal RC PWM channel values
+            self.rec_nominal = self.rec_msg
+        elif self.state == self.SERVICE:
+            # Check GPS fix was lost
+            if self.gps_msg.status < 0:
+                self.state = self.BOOT
+            # Check modules health
+            if self.check_modules_health() > 0:
+                self.state = self.ERROR
+            # Check if record command on RC is enabled
+            if self.check_rec_cmd():
+                self.state = self.RECORDING
+        elif self.state == self.RECORDING:
+            if not self.check_rec_cmd():
+                self.state = self.SERVICE
+        
+        # Publish current vehicle status
+        self.vehicle_status.header.stamp = rospy.Time.now()
+        self.status_pub.publish(self.vehicle_status)
+
+        # Sleep for some time
+        self.rate.sleep()
 
 if __name__ == '__main__':
-    node()
+    rospy.init_node('vehicle_monitor', anonymous=True)
+    fsm = FSM()
+    while not rospy.is_shutdown():
+        fsm.run()
