@@ -92,7 +92,7 @@ def update_status_stale(stat, last_update_time):
 
 class CPUMonitor():
     def __init__(self, hostname, diag_hostname):
-        self._diag_pub = rospy.Publisher('/diagnostics', DiagnosticArray, queue_size = 100)
+        self._diag_pub = rospy.Publisher('%s/diagnostics/cpu' % diag_hostname, DiagnosticArray, queue_size = 100)
 
         self._mutex = threading.Lock()
 
@@ -263,9 +263,14 @@ class CPUMonitor():
                 return DiagnosticStatus.ERROR, vals
 
             upvals = stdout.split()
-            load1 = float(upvals[-3].rstrip(','))/self._num_cores
-            load5 = float(upvals[-2].rstrip(','))/self._num_cores
-            load15 = float(upvals[-1])/self._num_cores
+            try:
+                load1 = float(upvals[-3].rstrip(','))/self._num_cores
+                load5 = float(upvals[-2].rstrip(','))/self._num_cores
+                load15 = float(upvals[-1])/self._num_cores
+            except ValueError:
+                load1 = float("%s.%s" % (upvals[-3].strip(',')[0], upvals[-3].strip(',')[1]))/self._num_cores
+                load5 = float("%s.%s" % (upvals[-2].strip(',')[0], upvals[-2].strip(',')[1]))/self._num_cores
+                load15 = float("%s.%s" % (upvals[-1].strip(',')[0], upvals[-1].strip(',')[1]))/self._num_cores
 
             # Give warning if we go over load limit
             if load1 > self._cpu_load1_warn or load5 > self._cpu_load5_warn:
