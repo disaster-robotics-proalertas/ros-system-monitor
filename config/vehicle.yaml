@@ -1,8 +1,0 @@
-vehicle_name: boat2
-sensor_modules:
-  quality,
-  vision
-gps_topic: /gps/fix
-record_command_topic: /mavros/RC/in
-record_command_channel: 5
-record_command_threshold: 20
