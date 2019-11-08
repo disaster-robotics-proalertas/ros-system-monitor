@@ -7,7 +7,7 @@ from math import sqrt
 from mavros_msgs.msg import RCIn
 from sensor_msgs.msg import NavSatFix
 from diagnostic_msgs.msg import DiagnosticArray
-from system_monitor_msgs.msg import VehicleStatus
+from system_monitor.msg import VehicleStatus
 
 '''
 This node verifies health for all modules, according to each module's monitors, and reports overall vehicle status
