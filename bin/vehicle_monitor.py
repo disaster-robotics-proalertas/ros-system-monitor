@@ -33,7 +33,7 @@ class FSM:
         self.rate = rospy.Rate(1)
 
         # Parameters
-        self.vehicle_name = rospy.get_param("~system_name")
+        self.vehicle_name = rospy.get_param("/asv_description/system_name")
         self.sensor_modules = rospy.get_param("asv_description/%s/sensor_modules" % self.vehicle_name)
         self.rec_topic = rospy.get_param("asv_description/%s/record_command_topic" % self.vehicle_name)
         self.gps_topic = rospy.get_param("asv_description/%s/fix_topic" % self.vehicle_name, default='/gps/fix')
