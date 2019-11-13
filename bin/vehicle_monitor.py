@@ -41,7 +41,7 @@ class FSM:
         self.rec_cmd_threshold = rospy.get_param("asv_description/%s/record_command_threshold" % self.vehicle_name, default=20)
 
         # Publishers and subscribers
-        self.status_pub = rospy.Publisher('%s/status' % self.vehicle_name, VehicleStatus, queue_size=10)
+        self.status_pub = rospy.Publisher('%s/vehicle/status' % self.vehicle_name, VehicleStatus, queue_size=10)
         self.gps_sub = rospy.Subscriber(self.gps_topic, NavSatFix, callback=self.gps_callback)
         self.rec_cmd_sub = rospy.Subscriber(self.rec_topic, RCIn, callback=self.rec_callback)
         
