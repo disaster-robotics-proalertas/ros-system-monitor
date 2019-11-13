@@ -19,15 +19,10 @@ Statuses are:
 '''
 
 class FSM:
-    # FSM states
-    ERROR=0
-    BOOT=1
-    SERVICE=2
-    RECORDING=3
-
     def __init__(self, **kwargs):
         # Initial FSM state
-        self.state = self.BOOT
+        self.state = VehicleStatus.BOOT
+        self.statename = 'BOOT'
 
         # ROS rate (1 Hz)
         self.rate = rospy.Rate(1)
@@ -50,7 +45,6 @@ class FSM:
         self.rec_nominal = RCIn()
         self.gps_msg = NavSatFix()
         self.vehicle_status = VehicleStatus()
-        self.vehicle_status.name = self.vehicle_name
 
     # Subscriber callbacks
     def rec_callback(self, msg):
@@ -86,32 +80,39 @@ class FSM:
     
     # Main FSM function
     def run(self):
-        if self.state == self.ERROR:
+        if self.state == VehicleStatus.ERROR:
             # If all modules are back online
             if self.check_modules_health() == 0:
-                self.state = self.BOOT
-        elif self.state == self.BOOT:
+                self.state = VehicleStatus.BOOT
+                self.statename = 'BOOT'
+        elif self.state == VehicleStatus.BOOT:
             # If modules are healthy and GPS is fix
             if self.check_modules_health() and self.gps_msg.status >= 0:
-                self.state = self.SERVICE
+                self.state = VehicleStatus.SERVICE
+                self.statename = 'SERVICE'
             # Get nominal RC PWM channel values
             self.rec_nominal = self.rec_msg
-        elif self.state == self.SERVICE:
+        elif self.state == VehicleStatus.SERVICE:
             # Check GPS fix was lost
             if self.gps_msg.status < 0:
-                self.state = self.BOOT
+                self.state = VehicleStatus.BOOT
+                self.statename = 'BOOT'
             # Check if modules are unhealthy
             if not self.check_modules_health():
-                self.state = self.ERROR
+                self.state = VehicleStatus.ERROR
+                self.statename = 'ERROR'
             # Check if record command on RC is enabled
             if self.check_rec_cmd():
-                self.state = self.RECORDING
-        elif self.state == self.RECORDING:
+                self.state = VehicleStatus.RECORDING
+                self.statename = 'RECORDING'
+        elif self.state == VehicleStatus.RECORDING:
             if not self.check_rec_cmd():
-                self.state = self.SERVICE
+                self.state = VehicleStatus.SERVICE
+                self.statename = 'SERVICE'
         
         # Publish current vehicle status
         self.vehicle_status.header.stamp = rospy.Time.now()
+        self.vehicle_status.name = self.statename
         self.vehicle_status.status = self.state
         self.status_pub.publish(self.vehicle_status)         
 

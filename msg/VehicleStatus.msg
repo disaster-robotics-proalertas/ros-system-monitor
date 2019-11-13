@@ -4,5 +4,5 @@ byte SERVICE=2
 byte RECORDING=3
 
 Header header
-string name     # Vehicle name
+string name     # Status name
 byte status     # Current vehicle status
