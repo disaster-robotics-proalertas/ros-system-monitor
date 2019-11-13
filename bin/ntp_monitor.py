@@ -50,7 +50,7 @@ import re
 NAME = 'ntp_monitor'
 
 def ntp_monitor(offset=500, self_offset=500, diag_hostname = None, error_offset = 5000000):
-    pub = rospy.Publisher("%s/diagnostics/ntp" % diag_hostname, DiagnosticArray, queue_size = 100)
+    pub = rospy.Publisher("diagnostics/ntp", DiagnosticArray, queue_size = 100)
     rospy.init_node(NAME, anonymous=True)
 
     hostname = socket.gethostname()
