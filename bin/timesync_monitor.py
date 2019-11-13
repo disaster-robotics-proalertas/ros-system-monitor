@@ -27,16 +27,19 @@ def node():
 
         # Get timesyncd service status
         proc = subprocess.Popen('/bin/systemctl status timesyncd.service', shell=True, stdout=subprocess.PIPE)
-        stdout = proc.communicate()[0].split('\n')
-        daemon_status = stdout[3].split('status')[1].split('/')[1].strip(')')
-        
-        # Publish synchronization diagnostics accordingly
-        if daemon_status == 'SUCCESS':
-            sys_status.status.level = 0
-        else:
-            sys_status.status.level = 2
+        try:
+            stdout = proc.communicate()[0].split('\n')
+            daemon_status = stdout[3].split('status')[1].split('/')[1].strip(')')
+            
+            # Publish synchronization diagnostics accordingly
+            if daemon_status == 'SUCCESS':
+                sys_status.status.level = 0
+            else:
+                sys_status.status.level = 2
 
-        status_pub.publish(sys_status)
+            status_pub.publish(sys_status)
+        except IndexError:
+            break
 
         rate.sleep()
 
