@@ -112,6 +112,7 @@ class FSM:
         
         # Publish current vehicle status
         self.vehicle_status.header.stamp = rospy.Time.now()
+        self.vehicle_status.status = self.state
         self.status_pub.publish(self.vehicle_status)         
 
         # Sleep for some time
