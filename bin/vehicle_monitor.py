@@ -68,7 +68,7 @@ class FSM:
                 # 2 seconds timeout for diagnostics message
                 diag_msg = rospy.wait_for_message("%s/status" % modname, DiagnosticArray, timeout=2.0)
                 # If at least one module is in error (codes 0 - OK, 1 - Warning, 2 - Error), overall system is not healthy
-                if diag_msg.status.level > 1:
+                if diag_msg.status[0].level > 1:
                     system_healthy = False
             # This exception is thrown if wait_for_message has timed out, in which case the module is unresponsive
             except rospy.ROSException:

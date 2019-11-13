@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from diagnostic_msgs.msg import DiagnosticArray
+from diagnostic_msgs.msg import DiagnosticArray, DiagnosticStatus
 import rospy
 import rostopic
 import socket
@@ -26,8 +26,11 @@ def node():
     # ROS rate (1 Hz)
     rate = rospy.Rate(1)
 
-    # Run while not shutdown
+    # We use a diagnostic array because DiagnosticStatus does not include header or timestamp information.......
     sys_status = DiagnosticArray()
+    sys_status.status.append(DiagnosticStatus())
+
+    # Run while not shutdown
     while not rospy.is_shutdown():
         sys_status.header.stamp = rospy.Time.now()
         # Check status for all monitors running on the system
@@ -36,16 +39,19 @@ def node():
             try:
                 # 2 seconds timeout for diagnostics message
                 topic_msg = rospy.wait_for_message(topic, DiagnosticArray, timeout=2.0)
+                # Each monitor publishes a list of statuses
+                # For example, CPU monitor publishes statuses on CPU temperature and usage 
                 # If at least one module is in error (codes 0 - OK, 1 - Warning, 2 - Error), overall system is not healthy
-                if topic_msg.status.level == 1:
-                    sys_status.status.level = 1
-                elif topic_msg.status.level == 2:
-                    sys_status.status.level = 2
-                else:
-                    sys_status.status.level = 0
+                for comp in topic_msg.status:
+                    if comp.level == 1:
+                        sys_status.status[0].level = 1
+                    elif comp.level == 2:
+                        sys_status.status[0].level = 2
+                    else:
+                        sys_status.status[0].level = 0
             # This exception is thrown if wait_for_message has timed out, in which case the module is unresponsive
             except rospy.ROSException:
-                sys_status.status.level = 2
+                sys_status.status[0].level = 2
         
         status_pub.publish(sys_status)
 
