@@ -14,11 +14,8 @@ def node():
     # Initialize node
     rospy.init_node("timesync_monitor", anonymous=True)
 
-    # Get module name
-    module_name = socket.gethostname().replace('-', '_')
-
     # Create system status publisher
-    status_pub = rospy.Publisher('diagnostics/timesync' % module_name, DiagnosticArray, queue_size=10)
+    status_pub = rospy.Publisher('diagnostics/timesync', DiagnosticArray, queue_size=10)
 
     # ROS rate (10 Hz)
     rate = rospy.Rate(10)
