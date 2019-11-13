@@ -154,7 +154,7 @@ install(PROGRAMS
   bin/mem_monitor.py
   bin/net_monitor.py
   bin/ntp_monitor.py
-  bin/system_monitor.py
+  bin/sys_monitor.py
   bin/timesync_monitor.py
   bin/vehicle_monitor.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}

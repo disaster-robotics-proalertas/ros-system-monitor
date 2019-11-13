@@ -14,7 +14,7 @@ def node():
     rospy.init_node("system_monitor", anonymous=True)
 
     # Get all topics in module's namespace with DiagnosticArray type
-    module_name = socket.gethostname().replace('-', '_')
+    module_name = rospy.get_param('~system_name')
     diag_topics = []
     for topic in rostopic.find_by_type('diagnostic_msgs/DiagnosticArray'):
         if module_name in topic:

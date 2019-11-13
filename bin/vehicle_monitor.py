@@ -7,7 +7,7 @@ from math import sqrt
 from mavros_msgs.msg import RCIn
 from sensor_msgs.msg import NavSatFix
 from diagnostic_msgs.msg import DiagnosticArray
-from system_monitor_msgs.msg import VehicleStatus
+from system_monitor.msg import VehicleStatus
 
 '''
 This node verifies health for all modules, according to each module's monitors, and reports overall vehicle status
@@ -33,12 +33,12 @@ class FSM:
         self.rate = rospy.Rate(1)
 
         # Parameters
-        self.sensor_modules = rospy.get_param("asv_description/sensor_modules")
-        self.vehicle_name = rospy.get_param("asv_description/vehicle_name")
-        self.rec_topic = rospy.get_param("asv_description/record_command_topic")
-        self.gps_topic = rospy.get_param("asv_description/fix_topic", default='/gps/fix')
-        self.rec_cmd_channel = rospy.get_param('asv_description/record_command_channel', default=5)
-        self.rec_cmd_threshold = rospy.get_param('asv_description/record_command_threshold', default=20)
+        self.vehicle_name = rospy.get_param("~system_name")
+        self.sensor_modules = rospy.get_param("asv_description/%s/sensor_modules" % self.vehicle_name)
+        self.rec_topic = rospy.get_param("asv_description/%s/record_command_topic" % self.vehicle_name)
+        self.gps_topic = rospy.get_param("asv_description/%s/fix_topic" % self.vehicle_name, default='/gps/fix')
+        self.rec_cmd_channel = rospy.get_param("asv_description/%s/record_command_channel" % self.vehicle_name, default=5)
+        self.rec_cmd_threshold = rospy.get_param("asv_description/%s/record_command_threshold" % self.vehicle_name, default=20)
 
         # Publishers and subscribers
         self.status_pub = rospy.Publisher('%s/status' % self.vehicle_name, VehicleStatus, queue_size=10)

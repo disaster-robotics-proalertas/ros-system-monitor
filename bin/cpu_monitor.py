@@ -268,9 +268,9 @@ class CPUMonitor():
                 load5 = float(upvals[-2].rstrip(','))/self._num_cores
                 load15 = float(upvals[-1])/self._num_cores
             except ValueError:
-                load1 = float("%s.%s" % (upvals[-3].strip(',')[0], upvals[-3].strip(',')[1]))/self._num_cores
-                load5 = float("%s.%s" % (upvals[-2].strip(',')[0], upvals[-2].strip(',')[1]))/self._num_cores
-                load15 = float("%s.%s" % (upvals[-1].strip(',')[0], upvals[-1].strip(',')[1]))/self._num_cores
+                load1 = float("%s.%s" % (upvals[-3].split(',')[0], upvals[-3].split(',')[1]))/self._num_cores
+                load5 = float("%s.%s" % (upvals[-2].split(',')[0], upvals[-2].split(',')[1]))/self._num_cores
+                load15 = float("%s.%s" % (upvals[-1].split(',')[0], upvals[-1].split(',')[1]))/self._num_cores
 
             # Give warning if we go over load limit
             if load1 > self._cpu_load1_warn or load5 > self._cpu_load5_warn:
