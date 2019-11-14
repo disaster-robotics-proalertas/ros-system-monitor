@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from diagnostic_msgs.msg import DiagnosticArray
+from diagnostic_msgs.msg import DiagnosticArray, DiagnosticStatus
 import rospy
 import rostopic
 import socket
@@ -15,15 +15,21 @@ def node():
     rospy.init_node("timesync_monitor", anonymous=True)
 
     # Create system status publisher
-    status_pub = rospy.Publisher('diagnostics/timesync', DiagnosticArray, queue_size=10)
+    status_pub = rospy.Publisher('diagnostics', DiagnosticArray, queue_size=10)
 
     # ROS rate (10 Hz)
     rate = rospy.Rate(10)
 
+    # Define initial diagnostics message
+    timesync = DiagnosticArray()
+    timesync.status.append(DiagnosticStatus())
+    timesync.status[0].level = 2
+    timesync.status[0].name = 'timesync'
+    timesync.status[0].hardware_id = socket.gethostname()
+
     # Run while not shutdown
-    sys_status = DiagnosticArray()
     while not rospy.is_shutdown():
-        sys_status.header.stamp = rospy.Time.now()
+        timesync.header.stamp = rospy.Time.now()
 
         # Get timesyncd service status
         proc = subprocess.Popen('/bin/systemctl status timesyncd.service', shell=True, stdout=subprocess.PIPE)
@@ -33,11 +39,13 @@ def node():
             
             # Publish synchronization diagnostics accordingly
             if daemon_status == 'SUCCESS':
-                sys_status.status.level = 0
+                timesync.status[0].level = 0
             else:
-                sys_status.status.level = 2
+                timesync.status[0].level = 2
 
-            status_pub.publish(sys_status)
+            timesync.status[0].values.key = 'daemon_status'
+            timesync.status[0].values.value = daemon_status
+            status_pub.publish(timesync)
         except IndexError:
             break
 
