@@ -70,7 +70,7 @@ class FSM:
             # This exception is thrown if wait_for_message has timed out, in which case the module is unresponsive
             except rospy.ROSException:
                 system_healthy = False
-                faulty_mod = '%s:%s' % (modname, diag_msg.name)
+                faulty_mod = '%s' % modname
         return system_healthy, faulty_mod
 
     def check_rec_cmd(self):
