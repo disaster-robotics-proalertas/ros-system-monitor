@@ -143,7 +143,7 @@ class hdd_monitor():
         self._hdd_temp_warn = rospy.get_param('~hdd_temp_warn', hdd_temp_warn)
         self._hdd_temp_error = rospy.get_param('~hdd_temp_error', hdd_temp_error)
 
-        self._diag_pub = rospy.Publisher('diagnostics/hdd', DiagnosticArray, queue_size = 100)
+        self._diag_pub = rospy.Publisher('diagnostics', DiagnosticArray, queue_size = 100)
 
         self._last_publish_time = 0
 
