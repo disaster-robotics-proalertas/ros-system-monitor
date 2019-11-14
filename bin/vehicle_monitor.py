@@ -30,11 +30,11 @@ class FSM:
 
         # Parameters
         self.vehicle_name = socket.gethostname()
-        self.sensor_modules = rospy.get_param("asv_description/%s/sensor_modules" % self.vehicle_name)
-        self.rec_topic = rospy.get_param("asv_description/%s/record_command_topic" % self.vehicle_name)
-        self.gps_topic = rospy.get_param("asv_description/%s/fix_topic" % self.vehicle_name, default='/gps/fix')
-        self.rec_cmd_channel = rospy.get_param("asv_description/%s/record_command_channel" % self.vehicle_name, default=5)
-        self.rec_cmd_threshold = rospy.get_param("asv_description/%s/record_command_threshold" % self.vehicle_name, default=20)
+        self.sensor_modules = rospy.get_param("/asv_description/%s/sensor_modules" % self.vehicle_name)
+        self.rec_topic = rospy.get_param("/asv_description/%s/record_command_topic" % self.vehicle_name)
+        self.gps_topic = rospy.get_param("/asv_description/%s/fix_topic" % self.vehicle_name, default='/gps/fix')
+        self.rec_cmd_channel = rospy.get_param("/asv_description/%s/record_command_channel" % self.vehicle_name, default=5)
+        self.rec_cmd_threshold = rospy.get_param("/asv_description/%s/record_command_threshold" % self.vehicle_name, default=20)
 
         # Publishers and subscribers
         self.status_pub = rospy.Publisher('/system_monitor/%s/vehicle/state' % self.vehicle_name, VehicleState, queue_size=10)
