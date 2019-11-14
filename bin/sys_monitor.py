@@ -21,7 +21,7 @@ def node():
             diag_topics.append(topic)
 
     # Create system status publisher
-    status_pub = rospy.Publisher('%s/status' % module_name, DiagnosticArray, queue_size=10)
+    status_pub = rospy.Publisher('/system_monitor/%s/status' % module_name, DiagnosticArray, queue_size=10)
 
     # ROS rate (1 Hz)
     rate = rospy.Rate(1)
