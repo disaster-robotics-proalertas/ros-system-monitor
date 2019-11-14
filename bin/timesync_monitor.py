@@ -42,9 +42,7 @@ def node():
                 timesync.status[0].level = 0
             else:
                 timesync.status[0].level = 2
-
-            timesync.status[0].values.key = 'daemon_status'
-            timesync.status[0].values.value = daemon_status
+                
             status_pub.publish(timesync)
         except IndexError:
             break
