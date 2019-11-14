@@ -4,5 +4,6 @@ byte SERVICE=2
 byte RECORDING=3
 
 Header header
-string name     # Status name
-byte status     # Current vehicle status
+string name         # Status name
+string description  # Status description (e.g., "Waiting for GPS fix")
+byte id             # Current vehicle status id (see definitions above)
