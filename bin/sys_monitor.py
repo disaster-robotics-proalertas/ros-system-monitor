@@ -34,14 +34,13 @@ def node():
             # Each monitor publishes a list of statuses
             # For example, CPU monitor publishes statuses on CPU temperature and usage (components)
             # If at least one component is in error (codes 0 - OK, 1 - Warning, 2 - Error), overall system is not healthy
-            for monitor in topic_msg.status:
-                for comp in monitor:
-                    if comp.level == 1:
-                        sys_status.status[0].level = 1
-                    elif comp.level == 2:
-                        sys_status.status[0].level = 2
-                    else:
-                        sys_status.status[0].level = 0
+            for comp in topic_msg.status:
+                if comp.level == 1:
+                    sys_status.status[0].level = 1
+                elif comp.level == 2:
+                    sys_status.status[0].level = 2
+                else:
+                    sys_status.status[0].level = 0
         # This exception is thrown if wait_for_message has timed out, in which case the module is unresponsive
         except rospy.ROSException:
             rospy.logwarn("[sys_monitor] No response from /system_monitor/%s/diagnostics topic" % module_name)
