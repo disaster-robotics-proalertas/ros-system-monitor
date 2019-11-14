@@ -7,7 +7,7 @@ from math import sqrt
 from mavros_msgs.msg import RCIn
 from sensor_msgs.msg import NavSatFix
 from diagnostic_msgs.msg import DiagnosticArray
-from system_monitor.msg import VehicleStatus
+from system_monitor.msg import VehicleState
 
 '''
 This node verifies health for all modules, according to each module's monitors, and reports overall vehicle status
@@ -21,7 +21,7 @@ Statuses are:
 class FSM:
     def __init__(self, **kwargs):
         # Initial FSM state
-        self.state = VehicleStatus.BOOT
+        self.state = VehicleState.BOOT
         self.statename = 'BOOT'
 
         # ROS rate (1 Hz)
@@ -36,7 +36,7 @@ class FSM:
         self.rec_cmd_threshold = rospy.get_param("asv_description/%s/record_command_threshold" % self.vehicle_name, default=20)
 
         # Publishers and subscribers
-        self.status_pub = rospy.Publisher('/system_monitor/%s/vehicle/status' % self.vehicle_name, VehicleStatus, queue_size=10)
+        self.status_pub = rospy.Publisher('/system_monitor/%s/vehicle/state' % self.vehicle_name, VehicleState, queue_size=10)
         self.gps_sub = rospy.Subscriber(self.gps_topic, NavSatFix, callback=self.gps_callback)
         self.rec_cmd_sub = rospy.Subscriber(self.rec_topic, RCIn, callback=self.rec_callback)
         
@@ -44,7 +44,7 @@ class FSM:
         self.rec_msg = RCIn()
         self.rec_nominal = RCIn()
         self.gps_msg = NavSatFix()
-        self.vehicle_status = VehicleStatus()
+        self.vehicle_status = VehicleState()
 
     # Subscriber callbacks
     def rec_callback(self, msg):
@@ -80,34 +80,34 @@ class FSM:
     
     # Main FSM function
     def run(self):
-        if self.state == VehicleStatus.ERROR:
+        if self.state == VehicleState.ERROR:
             # If all modules are back online
             if self.check_modules_health() == 0:
-                self.state = VehicleStatus.BOOT
+                self.state = VehicleState.BOOT
                 self.statename = 'BOOT'
-        elif self.state == VehicleStatus.BOOT:
+        elif self.state == VehicleState.BOOT:
             # If modules are healthy and GPS is fix
             if self.check_modules_health() and self.gps_msg.status >= 0:
-                self.state = VehicleStatus.SERVICE
+                self.state = VehicleState.SERVICE
                 self.statename = 'SERVICE'
             # Get nominal RC PWM channel values
             self.rec_nominal = self.rec_msg
-        elif self.state == VehicleStatus.SERVICE:
+        elif self.state == VehicleState.SERVICE:
             # Check GPS fix was lost
             if self.gps_msg.status < 0:
-                self.state = VehicleStatus.BOOT
+                self.state = VehicleState.BOOT
                 self.statename = 'BOOT'
             # Check if modules are unhealthy
             if not self.check_modules_health():
-                self.state = VehicleStatus.ERROR
+                self.state = VehicleState.ERROR
                 self.statename = 'ERROR'
             # Check if record command on RC is enabled
             if self.check_rec_cmd():
-                self.state = VehicleStatus.RECORDING
+                self.state = VehicleState.RECORDING
                 self.statename = 'RECORDING'
-        elif self.state == VehicleStatus.RECORDING:
+        elif self.state == VehicleState.RECORDING:
             if not self.check_rec_cmd():
-                self.state = VehicleStatus.SERVICE
+                self.state = VehicleState.SERVICE
                 self.statename = 'SERVICE'
         
         # Publish current vehicle status
