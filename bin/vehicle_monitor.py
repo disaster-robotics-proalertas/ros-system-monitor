@@ -22,6 +22,7 @@ class FSM:
     def __init__(self, **kwargs):
         # Initial FSM state
         self.state = VehicleState.BOOT
+        self.statedesc = 'Waiting for GPS fix'
         self.statename = 'BOOT'
 
         # ROS rate (1 Hz)
@@ -44,7 +45,7 @@ class FSM:
         self.rec_msg = RCIn()
         self.rec_nominal = RCIn()
         self.gps_msg = NavSatFix()
-        self.vehicle_status = VehicleState()
+        self.vehicle_state = VehicleState()
 
     # Subscriber callbacks
     def rec_callback(self, msg):
@@ -57,6 +58,7 @@ class FSM:
     def check_modules_health(self):
         # Check health for each module 
         system_healthy = True
+        faulty_mod = ''
         for modname in self.sensor_modules:
             try:
                 # 2 seconds timeout for diagnostics message
@@ -64,10 +66,11 @@ class FSM:
                 # If at least one module is in error (codes 0 - OK, 1 - Warning, 2 - Error), overall system is not healthy
                 if diag_msg.status[0].level > 1:
                     system_healthy = False
+                    faulty_mod = '%s:%s' % (diag_msg.hardware_id, diag_msg.name)
             # This exception is thrown if wait_for_message has timed out, in which case the module is unresponsive
             except rospy.ROSException:
                 system_healthy = False
-        return system_healthy
+        return system_healthy, faulty_mod
 
     def check_rec_cmd(self):
         # Check if RC PWM channel is within a certain threshold
@@ -85,11 +88,13 @@ class FSM:
             if self.check_modules_health() == 0:
                 self.state = VehicleState.BOOT
                 self.statename = 'BOOT'
+                self.statedesc = 'Waiting for GPS fix'
         elif self.state == VehicleState.BOOT:
             # If modules are healthy and GPS is fix
             if self.check_modules_health() and self.gps_msg.status >= 0:
                 self.state = VehicleState.SERVICE
                 self.statename = 'SERVICE'
+                self.statedesc = 'Vehicle operational'
             # Get nominal RC PWM channel values
             self.rec_nominal = self.rec_msg
         elif self.state == VehicleState.SERVICE:
@@ -97,24 +102,30 @@ class FSM:
             if self.gps_msg.status < 0:
                 self.state = VehicleState.BOOT
                 self.statename = 'BOOT'
+                self.statedesc = 'Waiting for GPS fix'
             # Check if modules are unhealthy
-            if not self.check_modules_health():
+            healthy, fault = self.check_modules_health()
+            if not healthy:
                 self.state = VehicleState.ERROR
                 self.statename = 'ERROR'
+                self.statedesc = 'Error in %s' % fault
             # Check if record command on RC is enabled
             if self.check_rec_cmd():
                 self.state = VehicleState.RECORDING
                 self.statename = 'RECORDING'
+                self.statedesc = 'Vehicle logging data'
         elif self.state == VehicleState.RECORDING:
             if not self.check_rec_cmd():
                 self.state = VehicleState.SERVICE
                 self.statename = 'SERVICE'
+                self.statedesc = 'Waiting for GPS fix'
         
         # Publish current vehicle status
-        self.vehicle_status.header.stamp = rospy.Time.now()
-        self.vehicle_status.name = self.statename
-        self.vehicle_status.status = self.state
-        self.status_pub.publish(self.vehicle_status)         
+        self.vehicle_state.header.stamp = rospy.Time.now()
+        self.vehicle_state.name = self.statename
+        self.vehicle_state.id = self.state
+        self.vehicle_state.description = self.statedesc
+        self.status_pub.publish(self.vehicle_state)         
 
         # Sleep for some time
         self.rate.sleep()
