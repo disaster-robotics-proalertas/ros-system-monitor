@@ -74,11 +74,14 @@ class FSM:
 
     def check_rec_cmd(self):
         # Check if RC PWM channel is within a certain threshold
-        nominal_pwm = self.rec_nominal.channels[self.rec_cmd_channel]
-        current_pwm = self.rec_msg.channels[self.rec_cmd_channel]
-        if sqrt((current_pwm - nominal_pwm)**2) <= self.rec_cmd_threshold:
-            return True
-        else:
+        try:
+            nominal_pwm = self.rec_nominal.channels[self.rec_cmd_channel]
+            current_pwm = self.rec_msg.channels[self.rec_cmd_channel]
+            if sqrt((current_pwm - nominal_pwm)**2) <= self.rec_cmd_threshold:
+                return True
+            else:
+                return False
+        except IndexError:
             return False
     
     # Main FSM function
