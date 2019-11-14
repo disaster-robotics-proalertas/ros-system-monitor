@@ -58,7 +58,7 @@ class FSM:
     def check_modules_health(self):
         # Check health for each module 
         system_healthy = True
-        faulty_mod = ''
+        faulty_msg = ''
         for modname in self.sensor_modules:
             try:
                 # 2 seconds timeout for diagnostics message
@@ -66,12 +66,12 @@ class FSM:
                 # If at least one module is in error (codes 0 - OK, 1 - Warning, 2 - Error), overall system is not healthy
                 if diag_msg.status[0].level > 1:
                     system_healthy = False
-                    faulty_mod = '%s:%s' % (modname, diag_msg.name)
+                    faulty_msg = 'Error in %s:%s' % (modname, diag_msg.name)
             # This exception is thrown if wait_for_message has timed out, in which case the module is unresponsive
             except rospy.ROSException:
                 system_healthy = False
-                faulty_mod = '%s' % modname
-        return system_healthy, faulty_mod
+                faulty_msg = 'No status received from %s' % modname
+        return system_healthy, faulty_msg
 
     def check_rec_cmd(self):
         # Check if RC PWM channel is within a certain threshold
@@ -108,11 +108,11 @@ class FSM:
                 self.statename = 'BOOT'
                 self.statedesc = 'Waiting for GPS fix'
             # Check if modules are unhealthy
-            healthy, fault = self.check_modules_health()
+            healthy, fault_msg = self.check_modules_health()
             if not healthy:
                 self.state = VehicleState.ERROR
                 self.statename = 'ERROR'
-                self.statedesc = 'Error in %s' % fault
+                self.statedesc = '%s' % fault_msg
             # Check if record command on RC is enabled
             if self.check_rec_cmd():
                 self.state = VehicleState.RECORDING
