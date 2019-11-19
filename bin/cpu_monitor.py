@@ -457,10 +457,11 @@ class CPUMonitor():
         diag_msgs = []
 
         # Check clock speed
-        clock_vals, clock_msgs, clock_level = self.check_clock_speed()
-        diag_vals.extend(clock_vals)
-        diag_msgs.extend(clock_msgs)
-        diag_level = max(diag_level, clock_level)
+        # This is not the same output in every OS!
+        # clock_vals, clock_msgs, clock_level = self.check_clock_speed()
+        # diag_vals.extend(clock_vals)
+        # diag_msgs.extend(clock_msgs)
+        # diag_level = max(diag_level, clock_level)
 
         # Check mpstat
         mp_level, mp_msg, mp_vals = self.check_mpstat()
