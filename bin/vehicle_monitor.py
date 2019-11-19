@@ -62,7 +62,7 @@ class FSM:
         for modname in self.sensor_modules:
             try:
                 # 2 seconds timeout for diagnostics message
-                diag_msg = rospy.wait_for_message("/system_monitor/%s/status" % modname, DiagnosticArray, timeout=2.0)
+                diag_msg = rospy.wait_for_message("/system_monitor/%s/status" % modname, DiagnosticArray, timeout=5.0)
                 # If at least one module is in error (codes 0 - OK, 1 - Warning, 2 - Error), overall system is not healthy
                 if diag_msg.status[0].level > 1:
                     system_healthy = False
