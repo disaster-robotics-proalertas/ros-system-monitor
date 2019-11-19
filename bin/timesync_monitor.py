@@ -24,7 +24,7 @@ def node():
     timesync = DiagnosticArray()
     timesync.status.append(DiagnosticStatus())
     timesync.status[0].level = 2
-    timesync.status[0].name = 'timesync'
+    timesync.status[0].name = 'Time synchronization'
     timesync.status[0].hardware_id = socket.gethostname()
 
     # Run while not shutdown
