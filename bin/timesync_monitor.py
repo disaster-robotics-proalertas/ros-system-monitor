@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from diagnostic_msgs.msg import DiagnosticArray, DiagnosticStatus
+from diagnostic_msgs.msg import DiagnosticArray, DiagnosticStatus, KeyValue
 import rospy
 import rostopic
 import socket
@@ -24,7 +24,7 @@ def node():
     timesync = DiagnosticArray()
     timesync.status.append(DiagnosticStatus())
     timesync.status[0].level = 2
-    timesync.status[0].name = 'Time synchronization'
+    timesync.status[0].name = 'timesyncd'
     timesync.status[0].hardware_id = socket.gethostname()
 
     # Run while not shutdown
@@ -42,7 +42,8 @@ def node():
                 timesync.status[0].level = 0
             else:
                 timesync.status[0].level = 2
-                
+            
+            timesync.status[0].values = KeyValue(key = 'Time synchronization', value = daemon_status)
             status_pub.publish(timesync)
         except IndexError:
             break
