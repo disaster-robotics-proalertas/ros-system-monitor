@@ -188,7 +188,7 @@ class CPUMonitor():
 
             if retcode != 0:
                 vals.append(KeyValue(key = 'uptime Failed', value = stderr))
-                return DiagnosticStatus.ERROR, vals
+                return DiagnosticStatus.ERROR, 'Unable to average load', vals
 
             upvals = stdout.split()
             try:
