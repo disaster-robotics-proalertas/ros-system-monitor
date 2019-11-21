@@ -426,7 +426,7 @@ if __name__ == '__main__':
     options, args = parser.parse_args(rospy.myargv())
 
     try:
-        rospy.init_node('cpu_monitor_%s' % hostname)
+        rospy.init_node('cpu_monitor_%s' % hostname, anonymous=True)
     except rospy.exceptions.ROSInitException:
         print >> sys.stderr, 'CPU monitor is unable to initialize node. Master may not be running.'
         sys.exit(0)

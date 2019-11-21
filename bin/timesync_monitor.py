@@ -12,7 +12,7 @@ This node verifies all system monitor statuses and reports the overall system he
 
 def node():
     # Initialize node
-    rospy.init_node("timesync_monitor", anonymous=True)
+    rospy.init_node("timesync_monitor_%s" % socket.gethostname(), anonymous=True)
 
     # Create system status publisher
     status_pub = rospy.Publisher('/diagnostics', DiagnosticArray, queue_size=10)

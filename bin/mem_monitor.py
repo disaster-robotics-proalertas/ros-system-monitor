@@ -65,7 +65,7 @@ class MemMonitor():
         level = DiagnosticStatus.OK
         msg = ''
 
-        mem_dict = { 0: 'OK', 1: 'Low Memory', 2: 'Very Low Memory' }
+        mem_dict = { 0: 'OK', 1: 'Low Memory', 2: 'Very Low Memory', 3: 'Error' }
 
         try:
             p = subprocess.Popen('free -tm',
@@ -76,43 +76,44 @@ class MemMonitor():
 
             if retcode != 0:
                 values.append(KeyValue(key = "\"free -tm\" Call Error", value = str(retcode)))
-                return DiagnosticStatus.ERROR, values
-
-            rows = stdout.split('\n')
-            data = rows[1].split()
-            total_mem_physical = data[1]
-            used_mem_physical = data[2]
-            free_mem_physical = data[3]
-            data = rows[2].split()
-            total_mem_swap = data[1]
-            used_mem_swap = data[2]
-            free_mem_swap = data[3]
-            data = rows[3].split()
-            total_mem = data[1]
-            used_mem = data[2]
-            free_mem = data[3]
-
-            level = DiagnosticStatus.OK
-            mem_usage = float(used_mem_physical)/float(total_mem_physical)
-            if (mem_usage < self._mem_level_warn):
-                level = DiagnosticStatus.OK
-            elif (mem_usage < self._mem_level_error):
-                level = DiagnosticStatus.WARN
-            else:
                 level = DiagnosticStatus.ERROR
+            else:
+                rows = stdout.split('\n')
+                data = rows[1].split()
+                total_mem_physical = data[1]
+                used_mem_physical = data[2]
+                free_mem_physical = data[3]
+                data = rows[2].split()
+                total_mem_swap = data[1]
+                used_mem_swap = data[2]
+                free_mem_swap = data[3]
+                data = rows[3].split()
+                total_mem = data[1]
+                used_mem = data[2]
+                free_mem = data[3]
 
-            values.append(KeyValue(key = 'Memory Status', value = mem_dict[level]))
-            values.append(KeyValue(key = 'Total Memory (Physical)', value = total_mem_physical+"M"))
-            values.append(KeyValue(key = 'Used Memory (Physical)', value = used_mem_physical+"M"))
-            values.append(KeyValue(key = 'Free Memory (Physical)', value = free_mem_physical+"M"))
-            values.append(KeyValue(key = 'Total Memory (Swap)', value = total_mem_swap+"M"))
-            values.append(KeyValue(key = 'Used Memory (Swap)', value = used_mem_swap+"M"))
-            values.append(KeyValue(key = 'Free Memory (Swap)', value = free_mem_swap+"M"))
-            values.append(KeyValue(key = 'Total Memory', value = total_mem+"M"))
-            values.append(KeyValue(key = 'Used Memory', value = used_mem+"M"))
-            values.append(KeyValue(key = 'Free Memory', value = free_mem+"M"))
+                level = DiagnosticStatus.OK
+                mem_usage = float(used_mem_physical)/float(total_mem_physical)
+                if (mem_usage < self._mem_level_warn):
+                    level = DiagnosticStatus.OK
+                elif (mem_usage < self._mem_level_error):
+                    level = DiagnosticStatus.WARN
+                else:
+                    level = DiagnosticStatus.ERROR
 
-            msg = mem_dict[level]
+                values.append(KeyValue(key = 'Memory Status', value = mem_dict[level]))
+                values.append(KeyValue(key = 'Total Memory (Physical)', value = total_mem_physical+"M"))
+                values.append(KeyValue(key = 'Used Memory (Physical)', value = used_mem_physical+"M"))
+                values.append(KeyValue(key = 'Free Memory (Physical)', value = free_mem_physical+"M"))
+                values.append(KeyValue(key = 'Total Memory (Swap)', value = total_mem_swap+"M"))
+                values.append(KeyValue(key = 'Used Memory (Swap)', value = used_mem_swap+"M"))
+                values.append(KeyValue(key = 'Free Memory (Swap)', value = free_mem_swap+"M"))
+                values.append(KeyValue(key = 'Total Memory', value = total_mem+"M"))
+                values.append(KeyValue(key = 'Used Memory', value = used_mem+"M"))
+                values.append(KeyValue(key = 'Free Memory', value = free_mem+"M"))
+
+                msg = mem_dict[level]
+
         except Exception, e:
             rospy.logerr(traceback.format_exc())
             msg = 'Memory Usage Check Error'
@@ -170,7 +171,7 @@ if __name__ == '__main__':
     options, args = parser.parse_args(rospy.myargv())
 
     try:
-        rospy.init_node('mem_monitor_%s' % hostname)
+        rospy.init_node('mem_monitor_%s' % hostname, anonymous=True)
     except rospy.exceptions.ROSInitException:
         print >> sys.stderr, 'Memory monitor is unable to initialize node. Master may not be running.'
         sys.exit(0)
