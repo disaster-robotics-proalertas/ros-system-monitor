@@ -2,11 +2,9 @@
 
 import rospy
 import socket
-import rostopic
 from math import sqrt
 from mavros_msgs.msg import RCIn
-from sensor_msgs.msg import NavSatFix
-from diagnostic_msgs.msg import DiagnosticArray
+from diagnostic_msgs.msg import DiagnosticArray, DiagnosticStatus
 from system_monitor.msg import VehicleState
 
 '''
@@ -30,48 +28,28 @@ class FSM:
 
         # Parameters
         self.vehicle_name = socket.gethostname()
-        self.sensor_modules = rospy.get_param("/asv_description/%s/sensor_modules" % self.vehicle_name)
-        self.rec_topic = rospy.get_param("/asv_description/%s/record_command_topic" % self.vehicle_name)
-        self.gps_topic = rospy.get_param("/asv_description/%s/fix_topic" % self.vehicle_name, default='/gps/fix')
+        self.rec_topic = rospy.get_param("/asv_description/%s/record_command_topic" % self.vehicle_name, default='/mavros/RC/in')
         self.rec_cmd_channel = rospy.get_param("/asv_description/%s/record_command_channel" % self.vehicle_name, default=5)
         self.rec_cmd_threshold = rospy.get_param("/asv_description/%s/record_command_threshold" % self.vehicle_name, default=20)
 
         # Publishers and subscribers
-        self.status_pub = rospy.Publisher('/system_monitor/%s/vehicle/state' % self.vehicle_name, VehicleState, queue_size=10)
-        self.gps_sub = rospy.Subscriber(self.gps_topic, NavSatFix, callback=self.gps_callback)
+        self.status_pub = rospy.Publisher('%s/vehicle/state' % socket.gethostname(), VehicleState, queue_size=10)
+        self.diag_agg_sub = rospy.Subscriber('/diagnostics_agg', DiagnosticArray, callback=self.diag_callback)
         self.rec_cmd_sub = rospy.Subscriber(self.rec_topic, RCIn, callback=self.rec_callback)
         
         # Messages
         self.rec_msg = RCIn()
         self.rec_nominal = RCIn()
-        self.gps_msg = NavSatFix()
+        self.diag_agg_msg = DiagnosticArray()
+        self.diag_toplevel_msg = DiagnosticStatus()
         self.vehicle_state = VehicleState()
 
     # Subscriber callbacks
     def rec_callback(self, msg):
         self.rec_msg = msg
 
-    def gps_callback(self, msg):
-        self.gps_msg = msg
-
-    # Helper functions
-    def check_modules_health(self):
-        # Check health for each module 
-        system_healthy = True
-        faulty_msg = ''
-        for modname in self.sensor_modules:
-            try:
-                # 2 seconds timeout for diagnostics message
-                diag_msg = rospy.wait_for_message("/system_monitor/%s/status" % modname, DiagnosticArray, timeout=5.0)
-                # If at least one module is in error (codes 0 - OK, 1 - Warning, 2 - Error), overall system is not healthy
-                if diag_msg.status[0].level > 1:
-                    system_healthy = False
-                    faulty_msg = 'Error in %s' % modname
-            # This exception is thrown if wait_for_message has timed out, in which case the module is unresponsive
-            except rospy.ROSException:
-                system_healthy = False
-                faulty_msg = 'No status received from %s' % modname
-        return system_healthy, faulty_msg
+    def diag_callback(self, msg):
+        self.diag_agg_msg = msg
 
     def check_rec_cmd(self):
         # Check if RC PWM channel is within a certain threshold
@@ -87,32 +65,34 @@ class FSM:
     
     # Main FSM function
     def run(self):
+        # Get GPS diagnostics level in diagnostics aggregator 
+        # From the way we structure the aggregator node, it is the second-to-last aggregated diagnostic
+        gps_diag_level = self.diag_agg_msg.status[-2].level
         if self.state == VehicleState.ERROR:
-            # If all modules are back online
-            if self.check_modules_health() == 0:
+            # If all modules are back online (toplevel status is warning or OK)
+            if self.diag_toplevel_msg.level <= 1:
                 self.state = VehicleState.BOOT
                 self.statename = 'BOOT'
                 self.statedesc = 'Waiting for GPS fix'
         elif self.state == VehicleState.BOOT:
             # If modules are healthy and GPS is fix
-            if self.check_modules_health() and self.gps_msg.status >= 0:
+            if self.diag_toplevel_msg.level <= 1 and gps_diag_level <= 1:
                 self.state = VehicleState.SERVICE
                 self.statename = 'SERVICE'
                 self.statedesc = 'Vehicle operational'
             # Get nominal RC PWM channel values
             self.rec_nominal = self.rec_msg
         elif self.state == VehicleState.SERVICE:
-            # Check GPS fix was lost
-            if self.gps_msg.status < 0:
+            # Check GPS diag level is error or stale
+            if self.diag_toplevel_msg.level > 1:
                 self.state = VehicleState.BOOT
                 self.statename = 'BOOT'
                 self.statedesc = 'Waiting for GPS fix'
             # Check if modules are unhealthy
-            healthy, fault_msg = self.check_modules_health()
-            if not healthy:
+            if self.diag_toplevel_msg.level > 1:
                 self.state = VehicleState.ERROR
                 self.statename = 'ERROR'
-                self.statedesc = '%s' % fault_msg
+                self.statedesc = 'Toplevel %d' % self.diag_toplevel_msg.level
             # Check if record command on RC is enabled
             if self.check_rec_cmd():
                 self.state = VehicleState.RECORDING
@@ -122,7 +102,7 @@ class FSM:
             if not self.check_rec_cmd():
                 self.state = VehicleState.SERVICE
                 self.statename = 'SERVICE'
-                self.statedesc = 'Waiting for GPS fix'
+                self.statedesc = 'Vehicle operational'
         
         # Publish current vehicle status
         self.vehicle_state.header.stamp = rospy.Time.now()
