@@ -1,54 +1,10 @@
 #!/usr/bin/env python
-############################################################################
-#    Copyright (C) 2009, Willow Garage, Inc.                               #
-#    Copyright (C) 2013 by Ralf Kaestner                                   #
-#    ralf.kaestner@gmail.com                                               #
-#    Copyright (C) 2013 by Jerome Maye                                     #
-#    jerome.maye@mavt.ethz.ch                                              #
-#                                                                          #
-#    All rights reserved.                                                  #
-#                                                                          #
-#    Redistribution and use in source and binary forms, with or without    #
-#    modification, are permitted provided that the following conditions    #
-#    are met:                                                              #
-#                                                                          #
-#    1. Redistributions of source code must retain the above copyright     #
-#       notice, this list of conditions and the following disclaimer.      #
-#                                                                          #
-#    2. Redistributions in binary form must reproduce the above copyright  #
-#       notice, this list of conditions and the following disclaimer in    #
-#       the documentation and/or other materials provided with the         #
-#       distribution.                                                      #
-#                                                                          #
-#    3. The name of the copyright holders may be used to endorse or        #
-#       promote products derived from this software without specific       #
-#       prior written permission.                                          #
-#                                                                          #
-#    THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS   #
-#    "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT     #
-#    LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS     #
-#    FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE        #
-#    COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,  #
-#    INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,  #
-#    BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;      #
-#    LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER      #
-#    CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT    #
-#    LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN     #
-#    ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE       #
-#    POSSIBILITY OF SUCH DAMAGE.                                           #
-############################################################################
-
-from __future__ import with_statement
 
 import rospy
 
 import traceback
-import threading
-from threading import Timer
-import sys, os, time
-from time import sleep
+import sys
 import subprocess
-import string
 import socket
 
 from diagnostic_msgs.msg import DiagnosticArray, DiagnosticStatus, KeyValue
@@ -88,8 +44,6 @@ class MemMonitor():
     def __init__(self, hostname, diag_hostname):
         self._diag_pub = rospy.Publisher('/diagnostics', DiagnosticArray, queue_size = 100)
 
-        self._mutex = threading.Lock()
-
         self._mem_level_warn = rospy.get_param('~mem_level_warn', mem_level_warn)
         self._mem_level_error = rospy.get_param('~mem_level_error', mem_level_error)
 
@@ -106,14 +60,6 @@ class MemMonitor():
         self._last_usage_time = 0
         self._last_publish_time = 0
 
-        # Start checking everything
-        self.check_usage()
-
-    ## Must have the lock to cancel everything
-    def cancel_timers(self):
-        if self._usage_timer:
-            self._usage_timer.cancel()
-
     def check_memory(self):
         values = []
         level = DiagnosticStatus.OK
@@ -125,7 +71,7 @@ class MemMonitor():
             p = subprocess.Popen('free -tm',
                                 stdout = subprocess.PIPE,
                                 stderr = subprocess.PIPE, shell = True)
-            stdout, stderr = p.communicate()
+            stdout, _ = p.communicate()
             retcode = p.returncode
 
             if retcode != 0:
@@ -176,11 +122,6 @@ class MemMonitor():
         return level, mem_dict[level], values
 
     def check_usage(self):
-        if rospy.is_shutdown():
-            with self._mutex:
-                self.cancel_timers()
-            return 
-
         diag_level = 0
         diag_vals = [ KeyValue(key = 'Update Status', value = 'OK' ),
                       KeyValue(key = 'Time Since Last Update', value = 0 )]
@@ -199,32 +140,22 @@ class MemMonitor():
             usage_msg = stat_dict[diag_level]
 
         # Update status
-        with self._mutex:
-            self._last_usage_time = rospy.get_time()
-            self._usage_stat.level = diag_level
-            self._usage_stat.values = diag_vals
-            
-            self._usage_stat.message = usage_msg
-            
-            if not rospy.is_shutdown():
-                self._usage_timer = threading.Timer(5.0, self.check_usage)
-                self._usage_timer.start()
-            else:
-                self.cancel_timers()
+        self._last_usage_time = rospy.get_time()
+        self._usage_stat.level = diag_level
+        self._usage_stat.values = diag_vals
+        
+        self._usage_stat.message = usage_msg
 
     def publish_stats(self):
-        with self._mutex:
-            # Update everything with last update times
-            update_status_stale(self._usage_stat, self._last_usage_time)
+        # Update everything with last update times
+        update_status_stale(self._usage_stat, self._last_usage_time)
 
-            msg = DiagnosticArray()
-            msg.header.stamp = rospy.get_rostime()
-            msg.status.append(self._usage_stat)
-
-            if rospy.get_time() - self._last_publish_time > 0.5:
-                self._diag_pub.publish(msg)
-                self._last_publish_time = rospy.get_time()
-
+        msg = DiagnosticArray()
+        msg.header.stamp = rospy.get_rostime()
+        msg.status.append(self._usage_stat)
+        
+        self._diag_pub.publish(msg)
+        
 
 if __name__ == '__main__':
     hostname = socket.gethostname()
@@ -250,6 +181,7 @@ if __name__ == '__main__':
     try:
         while not rospy.is_shutdown():
             rate.sleep()
+            mem_node.check_usage()
             mem_node.publish_stats()
     except KeyboardInterrupt:
         pass
@@ -257,5 +189,4 @@ if __name__ == '__main__':
         traceback.print_exc()
         rospy.logerr(traceback.format_exc())
 
-    mem_node.cancel_timers()
     sys.exit(0)

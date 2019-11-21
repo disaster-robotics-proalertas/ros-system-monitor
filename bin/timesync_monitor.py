@@ -17,8 +17,8 @@ def node():
     # Create system status publisher
     status_pub = rospy.Publisher('/diagnostics', DiagnosticArray, queue_size=10)
 
-    # ROS rate (10 Hz)
-    rate = rospy.Rate(10)
+    # ROS rate (1 Hz)
+    rate = rospy.Rate(1.0)
 
     # Define initial diagnostics message
     timesync = DiagnosticArray()
@@ -43,7 +43,7 @@ def node():
             else:
                 timesync.status[0].level = 2
             
-            timesync.status[0].values = KeyValue(key = 'Time synchronization', value = daemon_status)
+            timesync.status[0].values = [ KeyValue(key = 'Time synchronization', value = daemon_status) ]
             status_pub.publish(timesync)
         except IndexError:
             break

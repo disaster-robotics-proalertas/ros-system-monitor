@@ -1,55 +1,12 @@
 #!/usr/bin/env python
-############################################################################
-#    Copyright (C) 2009, Willow Garage, Inc.                               #
-#    Copyright (C) 2013 by Ralf Kaestner                                   #
-#    ralf.kaestner@gmail.com                                               #
-#    Copyright (C) 2013 by Jerome Maye                                     #
-#    jerome.maye@mavt.ethz.ch                                              #
-#                                                                          #
-#    All rights reserved.                                                  #
-#                                                                          #
-#    Redistribution and use in source and binary forms, with or without    #
-#    modification, are permitted provided that the following conditions    #
-#    are met:                                                              #
-#                                                                          #
-#    1. Redistributions of source code must retain the above copyright     #
-#       notice, this list of conditions and the following disclaimer.      #
-#                                                                          #
-#    2. Redistributions in binary form must reproduce the above copyright  #
-#       notice, this list of conditions and the following disclaimer in    #
-#       the documentation and/or other materials provided with the         #
-#       distribution.                                                      #
-#                                                                          #
-#    3. The name of the copyright holders may be used to endorse or        #
-#       promote products derived from this software without specific       #
-#       prior written permission.                                          #
-#                                                                          #
-#    THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS   #
-#    "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT     #
-#    LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS     #
-#    FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE        #
-#    COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,  #
-#    INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,  #
-#    BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;      #
-#    LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER      #
-#    CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT    #
-#    LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN     #
-#    ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE       #
-#    POSSIBILITY OF SUCH DAMAGE.                                           #
-############################################################################
-
-from __future__ import with_statement
 
 import rospy
 
-import traceback
-import threading
-from threading import Timer
-import sys, os, time
-from time import sleep
+import sys
 import subprocess
 import string
 import multiprocessing
+import traceback
 
 import socket
 
@@ -83,7 +40,6 @@ def update_status_stale(stat, last_update_time):
             stat.message = ', '.join([stat.message, stale_status])
         stat.level = max(stat.level, DiagnosticStatus.ERROR)
 
-
     stat.values.pop(0)
     stat.values.pop(0)
     stat.values.insert(0, KeyValue(key = 'Update Status', value = stale_status))
@@ -93,8 +49,6 @@ def update_status_stale(stat, last_update_time):
 class CPUMonitor():
     def __init__(self, hostname, diag_hostname):
         self._diag_pub = rospy.Publisher('/diagnostics', DiagnosticArray, queue_size = 100)
-
-        self._mutex = threading.Lock()
 
         self._check_core_temps = rospy.get_param('~check_core_temps', True)
 
@@ -136,32 +90,7 @@ class CPUMonitor():
 
         self._usage_old = 0
         self._has_warned_mpstat = False
-        self._has_error_core_count = False
-
-        # Start checking everything
-        self.check_temps()
-        self.check_usage()
-
-    # Restart temperature checking 
-    def _restart_temp_check(self):
-        rospy.logerr('Restarting temperature check thread in cpu_monitor. This should not happen')
-        try:
-            with self._mutex:
-                if self._temps_timer:
-                    self._temps_timer.cancel()
-                
-            self.check_temps()
-        except Exception, e:
-            rospy.logerr('Unable to restart temp thread. Error: %s' % traceback.format_exc())
-            
-
-    ## Must have the lock to cancel everything
-    def cancel_timers(self):
-        if self._temps_timer:
-            self._temps_timer.cancel()
-
-        if self._usage_timer:
-            self._usage_timer.cancel()
+        self._has_error_core_count = False            
 
     ##\brief Check CPU core temps
     ##
@@ -184,7 +113,6 @@ class CPUMonitor():
 
             if retcode != 0:
                 diag_level = DiagnosticStatus.ERROR
-                diag_msg = [ 'Core Temperature Error' ]
                 diag_vals = [ KeyValue(key = 'Core Temperature Error', value = stderr),
                               KeyValue(key = 'Output', value = stdout) ]
                 return diag_vals, diag_msgs, diag_level
@@ -235,7 +163,7 @@ class CPUMonitor():
                 speed = words[1].strip().split('.')[0] # Conversion to float doesn't work with decimal
                 vals.append(KeyValue(key = 'Core %d Clock Speed' % index, value = speed+"MHz"))
 
-        except Exception, e:
+        except Exception, _:
             rospy.logerr(traceback.format_exc())
             lvl = DiagnosticStatus.ERROR
             msgs.append('Exception')
@@ -281,7 +209,7 @@ class CPUMonitor():
             vals.append(KeyValue(key = 'Load Average (5min)', value = str(load5*1e2)+"%"))
             vals.append(KeyValue(key = 'Load Average (15min)', value = str(load15*1e2)+"%"))
 
-        except Exception, e:
+        except Exception, _:
             rospy.logerr(traceback.format_exc())
             level = DiagnosticStatus.ERROR
             vals.append(KeyValue(key = 'Load Average Status', value = traceback.format_exc()))
@@ -300,7 +228,8 @@ class CPUMonitor():
             p = subprocess.Popen('mpstat -P ALL 1 1',
                                 stdout = subprocess.PIPE,
                                 stderr = subprocess.PIPE, shell = True)
-            stdout, stderr = p.communicate()
+            stdout, _ = p.communicate()
+            stdout = stdout.replace(',','.')
             retcode = p.returncode
 
             if retcode != 0:
@@ -410,11 +339,6 @@ class CPUMonitor():
 
     ## Call every 10sec at minimum
     def check_temps(self):
-        if rospy.is_shutdown():
-            with self._mutex:
-                self.cancel_timers()
-            return
-
         diag_vals = [ KeyValue(key = 'Update Status', value = 'OK' ),
                       KeyValue(key = 'Time Since Last Update', value = str(0) ) ]
         diag_msgs = []
@@ -432,25 +356,13 @@ class CPUMonitor():
         else:
             message = stat_dict[diag_level]
 
-        with self._mutex:
-            self._last_temp_time = rospy.get_time()
-            
-            self._temp_stat.level = diag_level
-            self._temp_stat.message = message
-            self._temp_stat.values = diag_vals
-            
-            if not rospy.is_shutdown():
-                self._temps_timer = threading.Timer(5.0, self.check_temps)
-                self._temps_timer.start()
-            else:
-                self.cancel_timers()
-
+        self._last_temp_time = rospy.get_time()
+        
+        self._temp_stat.level = diag_level
+        self._temp_stat.message = message
+        self._temp_stat.values = diag_vals
+        
     def check_usage(self):
-        if rospy.is_shutdown():
-            with self._mutex:
-                self.cancel_timers()
-            return 
-
         diag_level = 0
         diag_vals = [ KeyValue(key = 'Update Status', value = 'OK' ),
                       KeyValue(key = 'Time Since Last Update', value = 0 )]
@@ -483,40 +395,23 @@ class CPUMonitor():
             usage_msg = stat_dict[diag_level]
 
         # Update status
-        with self._mutex:
-            self._last_usage_time = rospy.get_time()
-            self._usage_stat.level = diag_level
-            self._usage_stat.values = diag_vals
-            
-            self._usage_stat.message = usage_msg
-            
-            if not rospy.is_shutdown():
-                self._usage_timer = threading.Timer(5.0, self.check_usage)
-                self._usage_timer.start()
-            else:
-                self.cancel_timers()
+        self._last_usage_time = rospy.get_time()
+        self._usage_stat.level = diag_level
+        self._usage_stat.values = diag_vals
+        
+        self._usage_stat.message = usage_msg
 
     def publish_stats(self):
-        with self._mutex:
-            # Update everything with last update times
-            update_status_stale(self._temp_stat, self._last_temp_time)
-            update_status_stale(self._usage_stat, self._last_usage_time)
+        # Update everything with last update times
+        update_status_stale(self._temp_stat, self._last_temp_time)
+        update_status_stale(self._usage_stat, self._last_usage_time)
 
-            msg = DiagnosticArray()
-            msg.header.stamp = rospy.get_rostime()
-            msg.status.append(self._temp_stat)
-            msg.status.append(self._usage_stat)
+        msg = DiagnosticArray()
+        msg.header.stamp = rospy.get_rostime()
+        msg.status.append(self._temp_stat)
+        msg.status.append(self._usage_stat)
 
-            if rospy.get_time() - self._last_publish_time > 0.5:
-                self._diag_pub.publish(msg)
-                self._last_publish_time = rospy.get_time()
-
-        
-        # Restart temperature checking if it goes stale, #4171
-        # Need to run this without mutex
-        if rospy.get_time() - self._last_temp_time > 90: 
-            self._restart_temp_check()
-
+        self._diag_pub.publish(msg)
 
 if __name__ == '__main__':
     hostname = socket.gethostname()
@@ -542,6 +437,8 @@ if __name__ == '__main__':
     try:
         while not rospy.is_shutdown():
             rate.sleep()
+            cpu_node.check_temps()
+            cpu_node.check_usage()
             cpu_node.publish_stats()
     except KeyboardInterrupt:
         pass
@@ -549,5 +446,4 @@ if __name__ == '__main__':
         traceback.print_exc()
         rospy.logerr(traceback.format_exc())
 
-    cpu_node.cancel_timers()
     sys.exit(0)
