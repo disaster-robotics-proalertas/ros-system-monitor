@@ -117,6 +117,10 @@ class FSM:
 if __name__ == '__main__':
     rospy.init_node('vehicle_monitor', anonymous=True)
     fsm = FSM()
+
+    # Wait for messages to arrive in diagnostics topic
+    rospy.wait_for_message('/diagnostics', DiagnosticArray)
+
     # Run FSM while ros node is active
     while not rospy.is_shutdown():
         fsm.run()
