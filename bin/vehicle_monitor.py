@@ -33,8 +33,9 @@ class FSM:
         self.rec_cmd_threshold = rospy.get_param("/asv_description/%s/record_command_threshold" % self.vehicle_name, default=20)
 
         # Publishers and subscribers
-        self.status_pub = rospy.Publisher('%s/vehicle/state' % socket.gethostname(), VehicleState, queue_size=10)
+        self.status_pub = rospy.Publisher('/%s/vehicle/state' % socket.gethostname(), VehicleState, queue_size=10)
         self.diag_agg_sub = rospy.Subscriber('/diagnostics_agg', DiagnosticArray, callback=self.diag_callback)
+        self.diag_agg_sub = rospy.Subscriber('/diagnostics_toplevel_state', DiagnosticStatus, callback=self.diag_toplevel_callback)
         self.rec_cmd_sub = rospy.Subscriber(self.rec_topic, RCIn, callback=self.rec_callback)
         
         # Messages
@@ -50,6 +51,9 @@ class FSM:
 
     def diag_callback(self, msg):
         self.diag_agg_msg = msg
+
+    def diag_toplevel_callback(self, msg):
+        self.diag_toplevel_msg = msg
 
     def check_rec_cmd(self):
         # Check if RC PWM channel is within a certain threshold
@@ -67,7 +71,13 @@ class FSM:
     def run(self):
         # Get GPS diagnostics level in diagnostics aggregator 
         # From the way we structure the aggregator node, it is the second-to-last aggregated diagnostic
-        gps_diag_level = self.diag_agg_msg.status[-2].level
+        gps_diag_level = 3
+        try:
+            gps_diag_level = self.diag_agg_msg.status[-2].level
+        except IndexError:
+            pass
+        
+        # Finite state machine (FSM)
         if self.state == VehicleState.ERROR:
             # If all modules are back online (toplevel status is warning or OK)
             if self.diag_toplevel_msg.level <= 1:
@@ -117,9 +127,6 @@ class FSM:
 if __name__ == '__main__':
     rospy.init_node('vehicle_monitor', anonymous=True)
     fsm = FSM()
-
-    # Wait for messages to arrive in diagnostics topic
-    rospy.wait_for_message('/diagnostics', DiagnosticArray)
 
     # Run FSM while ros node is active
     while not rospy.is_shutdown():
