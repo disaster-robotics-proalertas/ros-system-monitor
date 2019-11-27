@@ -40,7 +40,6 @@ class FSM:
         
         # Messages
         self.rec_msg = RCIn()
-        self.rec_nominal = RCIn()
         self.diag_agg_msg = DiagnosticArray()
         self.diag_toplevel_msg = DiagnosticStatus()
         self.vehicle_state = VehicleState()
@@ -58,9 +57,7 @@ class FSM:
     def check_rec_cmd(self):
         # Check if RC PWM channel is within a certain threshold
         try:
-            nominal_pwm = self.rec_nominal.channels[self.rec_cmd_channel]
-            current_pwm = self.rec_msg.channels[self.rec_cmd_channel]
-            if sqrt((current_pwm - nominal_pwm)**2) <= self.rec_cmd_threshold:
+            if self.rec_msg.channels[self.rec_cmd_channel] > self.rec_cmd_threshold:
                 return True
             else:
                 return False
@@ -90,8 +87,6 @@ class FSM:
                 self.state = VehicleState.SERVICE
                 self.statename = 'SERVICE'
                 self.statedesc = 'Vehicle operational'
-            # Get nominal RC PWM channel values
-            self.rec_nominal = self.rec_msg
         elif self.state == VehicleState.SERVICE:
             # Check GPS diag level is error or stale
             if self.diag_toplevel_msg.level > 1:
