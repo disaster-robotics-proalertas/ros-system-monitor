@@ -29,7 +29,7 @@ class FSM:
         # Parameters
         self.vehicle_name = socket.gethostname()
         self.rec_topic = rospy.get_param("/asv_description/%s/record_command_topic" % self.vehicle_name, default='/mavros/RC/in')
-        self.rec_cmd_channel = rospy.get_param("/asv_description/%s/record_command_channel" % self.vehicle_name, default=5)
+        self.rec_cmd_channel = rospy.get_param("/asv_description/%s/record_command_channel" % self.vehicle_name, default=5) - 1
         self.rec_cmd_threshold = rospy.get_param("/asv_description/%s/record_command_threshold" % self.vehicle_name, default=20)
 
         # Publishers and subscribers
