@@ -6,10 +6,6 @@ import rostopic
 import socket
 import subprocess
 
-'''
-This node verifies all system monitor statuses and reports the overall system health
-'''
-
 def node():
     # Initialize node
     rospy.init_node("timesync_monitor_%s" % socket.gethostname(), anonymous=True)
