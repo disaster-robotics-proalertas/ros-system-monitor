@@ -82,13 +82,13 @@ class FSM:
                 self.statedesc = 'Waiting for GPS fix'
         elif self.state == VehicleState.BOOT:
             # If modules are healthy and GPS is fix
-            if self.diag_toplevel_msg.level <= 1 and self.fix_msg.status >= 0:
+            if self.diag_toplevel_msg.level <= 1 and self.fix_msg.status.status >= 0:
                 self.state = VehicleState.SERVICE
                 self.statename = 'SERVICE'
                 self.statedesc = 'Vehicle operational'
         elif self.state == VehicleState.SERVICE:
             # Check GPS diag level is error or stale
-            if self.fix_msg.status < 0:
+            if self.fix_msg.status.status < 0:
                 self.state = VehicleState.BOOT
                 self.statename = 'BOOT'
                 self.statedesc = 'Waiting for GPS fix'
