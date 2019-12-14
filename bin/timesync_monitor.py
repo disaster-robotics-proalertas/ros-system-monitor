@@ -7,8 +7,10 @@ import socket
 import subprocess
 
 def node():
+    system_name = socket.gethostname()
+
     # Initialize node
-    rospy.init_node("timesync_monitor_%s" % socket.gethostname(), anonymous=True)
+    rospy.init_node("timesync_monitor_%s" % system_name, anonymous=True)
 
     # Create system status publisher
     status_pub = rospy.Publisher('/diagnostics', DiagnosticArray, queue_size=10)
@@ -20,8 +22,8 @@ def node():
     timesync = DiagnosticArray()
     timesync.status.append(DiagnosticStatus())
     timesync.status[0].level = 2
-    timesync.status[0].name = 'timesyncd'
-    timesync.status[0].hardware_id = socket.gethostname()
+    timesync.status[0].name = 'timesyncd (%s)' % system_name
+    timesync.status[0].hardware_id = system_name
 
     # Run while not shutdown
     while not rospy.is_shutdown():
