@@ -17,6 +17,8 @@ Statuses are:
 3 - Recording   (special state, only activated through an RC command)
 '''
 
+status_dict = {0: 'OK', 1: 'Warning', 2: 'Error', 3: 'Stale'}
+
 class FSM:
     def __init__(self, **kwargs):
         # Initial FSM state
@@ -71,18 +73,34 @@ class FSM:
         except IndexError:
             return False
     
+    # Calculates top level state as mean of all levels
+    def check_mod_health(self):
+        toplevel = 0
+        unhealthy = ''
+        
+        for diag in self.diag_agg_msg.status:
+            # If some module is in error, append to a string
+            if diag.level > 1:
+                toplevel = 2
+                unhealthy += '%s; ' % diag.name
+
+        return toplevel, unhealthy
+
     # Main FSM function
-    def run(self):        
+    def run(self):
+        # Get modules' health
+        toplevel, unhealthy = self.check_mod_health()
+
         # Finite state machine (FSM)
         if self.state == VehicleState.ERROR:
             # If all modules are online (toplevel status is warning or OK)
-            if self.diag_toplevel_msg.level <= 1:
+            if toplevel <= 1:
                 self.state = VehicleState.BOOT
                 self.statename = 'BOOT'
                 self.statedesc = 'Waiting for GPS fix'
         elif self.state == VehicleState.BOOT:
             # If modules are healthy and GPS is fix
-            if self.diag_toplevel_msg.level <= 1 and self.fix_msg.status.status >= 0:
+            if toplevel <= 1 and self.fix_msg.status.status >= 0:
                 self.state = VehicleState.SERVICE
                 self.statename = 'SERVICE'
                 self.statedesc = 'Vehicle operational'
@@ -104,10 +122,11 @@ class FSM:
                 self.statedesc = 'Vehicle operational'
 
         # Check diagnostics for errors
-        if self.diag_toplevel_msg.level > 1:
+
+        if toplevel > 1:
             self.state = VehicleState.ERROR
             self.statename = 'ERROR'
-            self.statedesc = 'Toplevel %d' % self.diag_toplevel_msg.level
+            self.statedesc = unhealthy
         
         # Publish current vehicle status
         self.vehicle_state.header.stamp = rospy.Time.now()
