@@ -4,7 +4,7 @@ import rospy
 import socket
 from math import sqrt
 from mavros_msgs.msg import RCIn
-from nav_msgs.msg import NavSatFix
+from sensor_msgs.msg import NavSatFix
 from diagnostic_msgs.msg import DiagnosticArray, DiagnosticStatus
 from system_monitor.msg import VehicleState
 
