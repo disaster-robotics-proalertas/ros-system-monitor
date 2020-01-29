@@ -42,32 +42,36 @@ class Monitor:
         # Run while ROS is active
         while not rospy.is_shutdown():
             # Diagnostics message
-            self.temp_diag = DiagnosticArray()
-            self.temp_diag.header.stamp = rospy.Time().now()
-            self.temp_diag.status.append(DiagnosticStatus())
-            self.temp_diag.status[0].level = 2
-            self.temp_diag.status[0].name = 'Internal Temperature'
-            self.temp_diag.status[0].hardware_id = self.vehicle_name
-            
+            temp_diag = DiagnosticArray()
+            temp_diag.header.stamp = rospy.Time().now()
+            temp_diag.status.append(DiagnosticStatus())
+            temp_diag.status[0].name = 'Internal Temperature'
+            temp_diag.status[0].hardware_id = self.vehicle_name
 
+            # Compare internal temperature with threshold levels
+            temp_diag.status[0].level = DiagnosticStatus.OK
+            temp_diag.status[0].message = 'OK'
+            temp_diag.status[0].values.insert(0, KeyValue(key='Update Status', value='OK'))
+            if self.temperature.temperature >= self.temp_level_warn:
+                temp_diag.status[0].level = DiagnosticStatus.WARN
+                temp_diag.status[0].message = 'Warning'
+                temp_diag.status[0].values.insert(0, KeyValue(key = 'Update Status', value = 'Warning'))
+            elif self.temperature.temperature >= self.temp_level_error:
+                temp_diag.status[0].level = DiagnosticStatus.ERROR
+                temp_diag.status[0].message = 'Error'
+                temp_diag.status[0].values.insert(0, KeyValue(key = 'Update Status', value = 'Error'))
+            temp_diag.status[0].values.insert(1, KeyValue(key='Temperature', value=str(self.temperature.temperature)))
+            
             # Check if message is stale (older than 35 seconds)
             elapsed = rospy.Time().now().to_sec() - self.last_update
             if elapsed > 35:
-                self.temp_diag.status[0].level = DiagnosticStatus.STALE
-                self.temp_diag.status[0].values.insert(0, KeyValue(key = 'Update Status', value = 'Warning'))
-                self.temp_diag.status[0].values.insert(1, KeyValue(key = 'Time Since Update', value = str(elapsed)))
-            else:
-                # Compare internal temperature with threshold levels
-                self.temp_diag.status[0].level = DiagnosticStatus.OK
-                if self.temperature.temperature >= self.temp_level_warn:
-                    self.temp_diag.status[0].level = DiagnosticStatus.WARN
-                    self.temp_diag.status[0].values.insert(0, KeyValue(key = 'Update Status', value = 'Warning'))
-                elif self.temperature.temperature >= self.temp_level_error:
-                    self.temp_diag.status[0].level = DiagnosticStatus.ERROR
-                    self.temp_diag.status[0].values.insert(0, KeyValue(key = 'Update Status', value = 'Warning'))
+                temp_diag.status[0].level = DiagnosticStatus.STALE
+                temp_diag.status[0].message = 'Stale'
+                temp_diag.status[0].values.insert(0, KeyValue(key = 'Update Status', value = 'Stale'))
+                temp_diag.status[0].values.insert(1, KeyValue(key = 'Time Since Update', value = str(elapsed)))
 
             # Publish diagnostics message
-            self.status_pub.publish(self.temp_diag)
+            self.status_pub.publish(temp_diag)
 
             # Sleep for some time
             self.rate.sleep()
