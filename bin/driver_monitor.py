@@ -12,37 +12,45 @@ class Monitor:
         self.diag_pub = rospy.Publisher("/diagnostics", DiagnosticArray, queue_size=10)
         self.drivers = rospy.get_param("/asv_description/%s/sensor_drivers" % self.vehicle_name)
         self.rate = rospy.Rate(1)
-        self.last_update = rospy.Time.now().to_sec()
+        self.last_updates = {}
 
     def run(self):
         nodes = rosnode.get_node_names()
+        status_list = []
         for driver in self.drivers:
-            diag_msg = DiagnosticArray()
-            diag_msg.status.append(DiagnosticStatus())
-            diag_msg.status[0].name = "%s Module Driver" % driver.split('/')[1]
-            diag_msg.status[0].hardware_id = driver.split('/')[1]
-
-            # Check if message is stale (older than 35 seconds)
-            elapsed = rospy.Time.now().to_sec() - self.last_update
-            if elapsed > 35:
-                diag_msg.status[0].level = DiagnosticStatus.STALE
-		diag_msg.status[0].values.clear()
-                diag_msg.status[0].values.insert(0, KeyValue(key = '%s Driver' % driver.split('/')[2], value = 'Stale'))
-                diag_msg.status[0].values.insert(1, KeyValue(key = 'Time Since Update', value = str(elapsed)))
+            status = DiagnosticStatus()
+            status.name = "%s Module Driver" % driver.split('/')[1]
+            status.hardware_id = driver.split('/')[1]
 
             if driver in nodes:
-                diag_msg.status[0].level = DiagnosticStatus.OK
-		diag_msg.status[0].values.clear()
-                diag_msg.status[0].values.insert(0, KeyValue(key = '%s Driver' % driver.split('/')[2], value = 'Up'))
-                self.last_update = rospy.Time.now().to_sec()
+                status.level = DiagnosticStatus.OK
+                status.message = 'OK'
+                status.values.insert(0, KeyValue(key = 'Driver Status', value = 'Up'))
+                self.last_updates[status.hardware_id] = rospy.Time.now().to_sec()
             else:
-                diag_msg.status[0].level = DiagnosticStatus.ERROR
-		diag_msg.status[0].values.clear()
-                diag_msg.status[0].values.insert(0, KeyValue(key = '%s Driver' % driver.split('/')[2], value = 'Down'))
-                self.last_update = rospy.Time.now().to_sec()
+                status.level = DiagnosticStatus.ERROR
+                status.message = 'Module node not running'
+                status.values.insert(0, KeyValue(key = 'Driver Status', value = 'Down'))
+                self.last_updates[status.hardware_id] = rospy.Time.now().to_sec()
 
-            diag_msg.header.stamp = rospy.Time.now()
-            self.diag_pub.publish(diag_msg)
+            # Check if message is stale (older than 35 seconds)
+            try:
+                elapsed = rospy.Time.now().to_sec() - self.last_updates[status.hardware_id]
+            except KeyError:
+                elapsed = 0
+            if elapsed > 35:
+                status.level = DiagnosticStatus.STALE
+                status.message = 'Stale'
+                status.values.insert(0, KeyValue(key = 'Update Status', value = 'Stale'))
+                status.values.insert(1, KeyValue(key = 'Time Since Update', value = str(elapsed)))
+            
+            status_list.append(status)
+
+        diag_msg = DiagnosticArray()
+        diag_msg.header.stamp = rospy.Time.now()
+        for st in status_list:
+            diag_msg.status.append(st)
+        self.diag_pub.publish(diag_msg)
         
         self.rate.sleep()
 
