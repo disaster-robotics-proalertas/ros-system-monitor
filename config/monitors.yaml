@@ -26,4 +26,4 @@ net_monitor:
 internal_temp_monitor:
   temp_level_warn: 50.0
   temp_level_error: 70.0
-  temp_level_topic: /mavros/imu/temperature_baro
+  temp_level_topic: mavros/imu/temperature_baro

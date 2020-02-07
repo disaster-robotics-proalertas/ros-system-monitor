@@ -31,10 +31,10 @@ class FSM:
 
         # Parameters
         self.vehicle_name = socket.gethostname()
-        self.fix_topic = rospy.get_param("/asv_description/%s/fix_topic" % self.vehicle_name, default='/mavros/global_position/raw/fix')
-        self.rec_topic = rospy.get_param("/asv_description/%s/record_command_topic" % self.vehicle_name, default='/mavros/RC/in')
-        self.rec_cmd_channel = rospy.get_param("/asv_description/%s/record_command_channel" % self.vehicle_name, default=5) - 1
-        self.rec_cmd_threshold = rospy.get_param("/asv_description/%s/record_command_threshold" % self.vehicle_name, default=20)
+        self.fix_topic = rospy.get_param("asv_description/fix_topic", default='/mavros/global_position/raw/fix')
+        self.rec_topic = rospy.get_param("asv_description/record_command_topic", default='/mavros/rc/in')
+        self.rec_cmd_channel = rospy.get_param("asv_description/record_command_channel", default=5) - 1
+        self.rec_cmd_threshold = rospy.get_param("asv_description/record_command_threshold", default=20)
 
         # Publishers and subscribers
         self.status_pub = rospy.Publisher('/%s/vehicle/state' % socket.gethostname(), VehicleState, queue_size=10)
