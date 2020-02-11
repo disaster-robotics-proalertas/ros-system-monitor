@@ -22,7 +22,7 @@ cpu_temp_error = 90.0
 stat_dict = { 0: 'OK', 1: 'Warning', 2: 'Error' }
 
 def update_status_stale(stat, last_update_time):
-    time_since_update = rospy.get_time() - last_update_time
+    time_since_update = rospy.Time.now().to_sec() - last_update_time.to_sec()
 
     stale_status = 'OK'
     if time_since_update > 20 and time_since_update <= 35:
@@ -356,7 +356,7 @@ class CPUMonitor():
         else:
             message = stat_dict[diag_level]
 
-        self._last_temp_time = rospy.get_time()
+        self._last_temp_time = rospy.Time.now()
         
         self._temp_stat.level = diag_level
         self._temp_stat.message = message
@@ -395,7 +395,7 @@ class CPUMonitor():
             usage_msg = stat_dict[diag_level]
 
         # Update status
-        self._last_usage_time = rospy.get_time()
+        self._last_usage_time = rospy.Time.now()
         self._usage_stat.level = diag_level
         self._usage_stat.values = diag_vals
         
